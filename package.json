@@ -1,0 +1,14 @@
+{
+  "name": "html-pdf-converter",
+  "version": "1.0.0",
+  "description": "HTML to single-page PDF converter — Puppeteer on Vercel",
+  "scripts": {
+    "dev": "vercel dev",
+    "deploy": "vercel --prod"
+  },
+  "dependencies": {
+    "@sparticuz/chromium": "123.0.1",
+    "puppeteer-core": "22.6.5",
+    "busboy": "1.6.0"
+  }
+}
