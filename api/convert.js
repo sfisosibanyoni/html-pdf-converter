@@ -71,19 +71,11 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: "No HTML content provided." });
     }
 
-    // Escape HTML for embedding in a JS string inside JSON
-    const escapedHtml = html
-      .replace(/\\/g, "\\\\")
-      .replace(/`/g, "\\`")
-      .replace(/\$/g, "\\$");
-
-    // This script runs inside Browserless's Chrome instance.
-    // It measures full content size, resizes the viewport, then exports a single-page PDF.
     const puppeteerScript = `
       export default async function({ page }) {
         await page.setViewport({ width: ${renderWidth}, height: 900, deviceScaleFactor: ${scale} });
 
-        await page.setContent(\`${escapedHtml}\`, {
+        await page.setContent(${JSON.stringify(html)}, {
           waitUntil: ["networkidle0", "domcontentloaded"],
           timeout: 45000,
         });
