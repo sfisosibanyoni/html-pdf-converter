@@ -97,6 +97,36 @@ module.exports = async function handler(req, res) {
           timeout: 45000,
         });
 
+        // Proactively provide common icon fonts. Documents exported from build
+        // pipelines (Tailwind etc.) often reference icon classes like
+        // "material-symbols-outlined" but drop the <link> and helper CSS, so the
+        // icon renders as its literal ligature text (e.g. the word "storefront").
+        // Injecting both the font and the helper class makes them work anyway.
+        await page.addStyleTag({
+          url: "https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined&family=Material+Symbols+Rounded&family=Material+Symbols+Sharp&display=block"
+        }).catch(() => {});
+        await page.addStyleTag({
+          url: "https://fonts.googleapis.com/icon?family=Material+Icons|Material+Icons+Outlined|Material+Icons+Round|Material+Icons+Sharp"
+        }).catch(() => {});
+        await page.addStyleTag({
+          content: \`
+            .material-symbols-outlined,.material-symbols-rounded,.material-symbols-sharp,
+            .material-icons,.material-icons-outlined,.material-icons-round,.material-icons-sharp{
+              font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;
+              text-transform:none;display:inline-block;white-space:nowrap;word-wrap:normal;
+              direction:ltr;font-feature-settings:'liga';-webkit-font-feature-settings:'liga';
+              -webkit-font-smoothing:antialiased;
+            }
+            .material-symbols-outlined{font-family:'Material Symbols Outlined';}
+            .material-symbols-rounded{font-family:'Material Symbols Rounded';}
+            .material-symbols-sharp{font-family:'Material Symbols Sharp';}
+            .material-icons{font-family:'Material Icons';}
+            .material-icons-outlined{font-family:'Material Icons Outlined';}
+            .material-icons-round{font-family:'Material Icons Round';}
+            .material-icons-sharp{font-family:'Material Icons Sharp';}
+          \`
+        }).catch(() => {});
+
         // Wait for all fonts to actually finish loading
         await page.evaluate(() => document.fonts.ready);
         await page.evaluate(async () => {
@@ -124,9 +154,12 @@ module.exports = async function handler(req, res) {
           await Promise.all([
             'Noto Sans', 'Noto Sans Symbols', 'Noto Sans Symbols 2', 'Noto Color Emoji'
           ].map(f => document.fonts.load('400 16px "' + f + '"').catch(() => {})));
+          const ICON_FONT = /Material (Symbols|Icons)|Font ?Awesome|Glyphicons|Ionicons|Feather|Bootstrap Icons|remixicon/i;
           document.querySelectorAll("*").forEach(el => {
             const ff = window.getComputedStyle(el).fontFamily;
-            if (ff && !ff.includes("Noto")) {
+            // Don't touch icon-font elements — appending text fallbacks can make
+            // an unresolved icon render as its literal ligature text instead.
+            if (ff && !ff.includes("Noto") && !ICON_FONT.test(ff)) {
               el.style.fontFamily = ff + ', ' + FALLBACK;
             }
           });
