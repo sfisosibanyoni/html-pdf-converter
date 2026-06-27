@@ -136,7 +136,7 @@ module.exports = async function handler(req, res) {
         });
 
         return {
-          pdf: pdf.toString("base64"),
+          pdf: Buffer.from(pdf).toString("base64"),
           dims,
           pdfW,
           pdfH,
