@@ -73,6 +73,7 @@ module.exports = async function handler(req, res) {
 
     const puppeteerScript = `
       export default async function({ page }) {
+        await page.emulateMediaType("screen");
         await page.setViewport({ width: ${renderWidth}, height: 900, deviceScaleFactor: ${scale} });
 
         await page.setContent(${JSON.stringify(html)}, {
@@ -80,6 +81,7 @@ module.exports = async function handler(req, res) {
           timeout: 45000,
         });
 
+        await page.evaluateHandle("document.fonts.ready");
         await new Promise(r => setTimeout(r, 1000));
 
         // Force-load lazy images
