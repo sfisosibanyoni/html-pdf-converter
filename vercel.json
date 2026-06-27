@@ -2,7 +2,7 @@
   "version": 2,
   "functions": {
     "api/convert.js": {
-      "memory": 3008,
+      "memory": 512,
       "maxDuration": 60
     }
   }
