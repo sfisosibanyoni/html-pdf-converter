@@ -55,7 +55,13 @@ module.exports = async function handler(req, res) {
 
     if (ct.includes("multipart/form-data")) {
       const { fields, fileContent } = await parseMultipart(req);
-      html = fileContent || fields.html || "";
+      // fileContent was extracted from a latin1-decoded body to keep byte
+      // boundaries intact; round-trip it back to proper UTF-8 text here,
+      // otherwise multi-byte characters (smart quotes, em-dashes, bullets,
+      // accented letters, emoji) come out as mojibake.
+      html = fileContent
+        ? Buffer.from(fileContent, "latin1").toString("utf8")
+        : (fields.html || "");
       renderWidth = parseInt(fields.renderWidth || "1280", 10);
       scale = parseFloat(fields.scale || "1");
     } else {
@@ -74,6 +80,16 @@ module.exports = async function handler(req, res) {
     const puppeteerScript = `
       export default async function({ page }) {
         await page.emulateMediaType("screen");
+
+        // Look like a real Chrome so hotlink-protected image hosts don't 403.
+        await page.setUserAgent(
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+          "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+        );
+        await page.setExtraHTTPHeaders({
+          "Accept-Language": "en-US,en;q=0.9",
+        });
+
         await page.setViewport({ width: ${renderWidth}, height: 900, deviceScaleFactor: ${scale} });
 
         await page.setContent(${JSON.stringify(html)}, {
@@ -92,6 +108,12 @@ module.exports = async function handler(req, res) {
         // without overriding it — the primary font still renders first.
         await page.addStyleTag({
           url: "https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Color+Emoji&display=swap"
+        });
+        // Force markers (bullets / list numbers) to a font that definitely has
+        // the glyphs — substituted fonts on the Linux renderer often lack them,
+        // which is what turns bullets into little boxes (tofu).
+        await page.addStyleTag({
+          content: '::marker { font-family: "Noto Sans", "Noto Color Emoji" !important; }'
         });
         await page.evaluate(async () => {
           await document.fonts.load('400 16px "Noto Sans"').catch(() => {});
@@ -115,6 +137,20 @@ module.exports = async function handler(req, res) {
         });
 
         await new Promise(r => setTimeout(r, 1500));
+
+        // Explicitly wait for every image to finish (or fail) so a slow header
+        // image isn't missed by the networkidle heuristic.
+        await page.evaluate(async () => {
+          await Promise.all([...document.images].map(img => {
+            if (img.complete && img.naturalWidth > 0) return Promise.resolve();
+            return new Promise(res => {
+              img.addEventListener("load", res, { once: true });
+              img.addEventListener("error", res, { once: true });
+              setTimeout(res, 12000);
+            });
+          }));
+        });
+
         await page.evaluate(() => window.scrollTo(0, 0));
         await new Promise(r => setTimeout(r, 500));
 
