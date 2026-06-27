@@ -81,10 +81,13 @@ module.exports = async function handler(req, res) {
           timeout: 45000,
         });
 
-        await page.evaluateHandle("document.fonts.ready");
-        await new Promise(r => setTimeout(r, 1000));
+        // Wait for all fonts to actually finish loading
+        await page.evaluate(() => document.fonts.ready);
+        await page.evaluate(async () => {
+          await Promise.all([...document.fonts].map(f => f.load().catch(() => {})));
+        });
 
-        // Force-load lazy images
+        // Force-load lazy images and trigger full layout
         await page.evaluate(() => {
           document.querySelectorAll("img[loading='lazy']").forEach(img => {
             img.loading = "eager";
@@ -94,9 +97,9 @@ module.exports = async function handler(req, res) {
           window.scrollTo(0, document.body.scrollHeight);
         });
 
-        await new Promise(r => setTimeout(r, 600));
+        await new Promise(r => setTimeout(r, 1500));
         await page.evaluate(() => window.scrollTo(0, 0));
-        await new Promise(r => setTimeout(r, 300));
+        await new Promise(r => setTimeout(r, 500));
 
         const dims = await page.evaluate(() => ({
           width: Math.max(
