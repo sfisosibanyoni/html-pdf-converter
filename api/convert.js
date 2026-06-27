@@ -106,25 +106,31 @@ module.exports = async function handler(req, res) {
         // Inject Noto Sans + Noto Color Emoji as fallback for every element.
         // This covers special characters and symbols missing from the primary font
         // without overriding it — the primary font still renders first.
+        // Noto Sans covers text; Symbols / Symbols 2 cover dingbats, arrows,
+        // checkmarks, stars, phone/mail glyphs and other "icon" characters;
+        // Color Emoji covers emoji. Together they fill almost every glyph gap
+        // left by fonts that aren't installed on the Linux renderer.
         await page.addStyleTag({
-          url: "https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Color+Emoji&display=swap"
+          url: "https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+Symbols&family=Noto+Sans+Symbols+2&family=Noto+Color+Emoji&display=swap"
         });
-        // Force markers (bullets / list numbers) to a font that definitely has
+        const FALLBACK = '"Noto Sans", "Noto Sans Symbols", "Noto Sans Symbols 2", "Noto Color Emoji"';
+        // Force markers (bullets / list numbers) to fonts that definitely have
         // the glyphs — substituted fonts on the Linux renderer often lack them,
         // which is what turns bullets into little boxes (tofu).
         await page.addStyleTag({
-          content: '::marker { font-family: "Noto Sans", "Noto Color Emoji" !important; }'
+          content: '::marker { font-family: ' + FALLBACK + ' !important; }'
         });
-        await page.evaluate(async () => {
-          await document.fonts.load('400 16px "Noto Sans"').catch(() => {});
-          await document.fonts.load('400 16px "Noto Color Emoji"').catch(() => {});
+        await page.evaluate(async (FALLBACK) => {
+          await Promise.all([
+            'Noto Sans', 'Noto Sans Symbols', 'Noto Sans Symbols 2', 'Noto Color Emoji'
+          ].map(f => document.fonts.load('400 16px "' + f + '"').catch(() => {})));
           document.querySelectorAll("*").forEach(el => {
             const ff = window.getComputedStyle(el).fontFamily;
             if (ff && !ff.includes("Noto")) {
-              el.style.fontFamily = ff + ', "Noto Sans", "Noto Color Emoji"';
+              el.style.fontFamily = ff + ', ' + FALLBACK;
             }
           });
-        });
+        }, FALLBACK);
 
         // Force-load lazy images and trigger full layout
         await page.evaluate(() => {
