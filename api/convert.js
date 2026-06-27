@@ -87,6 +87,23 @@ module.exports = async function handler(req, res) {
           await Promise.all([...document.fonts].map(f => f.load().catch(() => {})));
         });
 
+        // Inject Noto Sans + Noto Color Emoji as fallback for every element.
+        // This covers special characters and symbols missing from the primary font
+        // without overriding it — the primary font still renders first.
+        await page.addStyleTag({
+          url: "https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Color+Emoji&display=swap"
+        });
+        await page.evaluate(async () => {
+          await document.fonts.load('400 16px "Noto Sans"').catch(() => {});
+          await document.fonts.load('400 16px "Noto Color Emoji"').catch(() => {});
+          document.querySelectorAll("*").forEach(el => {
+            const ff = window.getComputedStyle(el).fontFamily;
+            if (ff && !ff.includes("Noto")) {
+              el.style.fontFamily = ff + ', "Noto Sans", "Noto Color Emoji"';
+            }
+          });
+        });
+
         // Force-load lazy images and trigger full layout
         await page.evaluate(() => {
           document.querySelectorAll("img[loading='lazy']").forEach(img => {
