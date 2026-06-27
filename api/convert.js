@@ -136,8 +136,7 @@ module.exports = async function handler(req, res) {
         });
 
         return {
-          data:   pdf.toString("base64"),
-          type:   "application/pdf",
+          pdf: pdf.toString("base64"),
           dims,
           pdfW,
           pdfH,
@@ -162,8 +161,7 @@ module.exports = async function handler(req, res) {
 
     const result = await blessRes.json();
 
-    // result.data is the base64-encoded PDF returned from the script
-    const pdfBuffer = Buffer.from(result.data, "base64");
+    const pdfBuffer = Buffer.from(result.pdf, "base64");
     const { dims, pdfW, pdfH } = result;
 
     res.setHeader("Content-Type",        "application/pdf");
