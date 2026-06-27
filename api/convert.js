@@ -135,8 +135,13 @@ module.exports = async function handler(req, res) {
           scale:           1,
         });
 
+        const bytes = new Uint8Array(pdf);
+        let binary = "";
+        for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+        const pdfBase64 = btoa(binary);
+
         return {
-          pdf: Buffer.from(pdf).toString("base64"),
+          pdf: pdfBase64,
           dims,
           pdfW,
           pdfH,
